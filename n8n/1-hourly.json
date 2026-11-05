@@ -1,0 +1,336 @@
+{
+  "name": "News Tracker · Hourly",
+  "nodes": [
+    {
+      "id": "497b046d-cee6-4ab8-8aaf-dfdaab10e7f1",
+      "name": "Read me",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "content": "## Hourly\nAt 5 past every hour (IST): reads your Status edits from OneDrive, fetches new uploads from the 4 channels, Claude writes the descriptions, then uploads today's 4 task sheets, the 4 History files and the dashboard.",
+        "width": 520,
+        "height": 200
+      }
+    },
+    {
+      "id": "3a0fec4e-8dfa-4d4a-936c-1971149d260f",
+      "name": "Every hour",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        300
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "5 * * * *"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "549a647c-db22-4c46-9424-46f134b1f78c",
+      "name": "Get sheet paths",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        300
+      ],
+      "parameters": {
+        "options": {
+          "timeout": 900000
+        },
+        "url": "http://tracker:8080/paths"
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "fb066a83-2cd7-4200-b572-a405cf46c040",
+      "name": "Split paths",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        480,
+        300
+      ],
+      "parameters": {
+        "fieldToSplitOut": "paths",
+        "options": {}
+      }
+    },
+    {
+      "id": "15cbc7bd-1b8b-4022-9a7d-4ae88c0ddc03",
+      "name": "Download sheet from OneDrive",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        300
+      ],
+      "parameters": {
+        "options": {
+          "timeout": 120000,
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "neverError": true
+            }
+          }
+        },
+        "url": "={{ 'https://graph.microsoft.com/v1.0/me/drive/root:/' + $json.path.split('/').map(encodeURIComponent).join('/') + ':/content' }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "microsoftOneDriveOAuth2Api"
+      },
+      "credentials": {
+        "microsoftOneDriveOAuth2Api": {
+          "id": "",
+          "name": "Microsoft OneDrive account"
+        }
+      },
+      "notes": "Reads back the Status column you edited. A missing file (first run) is fine."
+    },
+    {
+      "id": "c611a8c6-af2d-4da9-96ca-91a3e413b9df",
+      "name": "Import Status column",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        960,
+        300
+      ],
+      "parameters": {
+        "options": {
+          "timeout": 900000
+        },
+        "method": "POST",
+        "url": "http://tracker:8080/status",
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "data"
+      },
+      "continueOnFail": true
+    },
+    {
+      "id": "59134382-fc10-4156-ac7b-1c828e5c9169",
+      "name": "Collect new videos",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1200,
+        300
+      ],
+      "parameters": {
+        "options": {
+          "timeout": 900000
+        },
+        "method": "POST",
+        "url": "http://tracker:8080/collect",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={}"
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "03d0ed2e-7a1b-4599-b72a-f5744bf08fd6",
+      "name": "Build Excel files",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1440,
+        300
+      ],
+      "parameters": {
+        "options": {
+          "timeout": 900000
+        },
+        "method": "POST",
+        "url": "http://tracker:8080/files",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={}"
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "def77206-cd6c-4b07-9fe6-f6ba35e40050",
+      "name": "Split files",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        1680,
+        300
+      ],
+      "parameters": {
+        "fieldToSplitOut": "files",
+        "options": {}
+      }
+    },
+    {
+      "id": "1d62f8ab-4d75-4fe8-a61e-7bdded3aa8d8",
+      "name": "Make Excel file",
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        1920,
+        300
+      ],
+      "parameters": {
+        "operation": "toBinary",
+        "sourceProperty": "base64",
+        "options": {
+          "fileName": "={{ $json.name }}",
+          "mimeType": "={{ $json.mimeType }}"
+        }
+      }
+    },
+    {
+      "id": "ee8e3b03-98fd-4e8e-a79e-e74a1edda9ab",
+      "name": "Upload to OneDrive",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2160,
+        300
+      ],
+      "parameters": {
+        "options": {
+          "timeout": 300000
+        },
+        "method": "PUT",
+        "url": "={{ 'https://graph.microsoft.com/v1.0/me/drive/root:/' + $('Split files').item.json.path.split('/').map(encodeURIComponent).join('/') + ':/content' }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "microsoftOneDriveOAuth2Api",
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "data"
+      },
+      "credentials": {
+        "microsoftOneDriveOAuth2Api": {
+          "id": "",
+          "name": "Microsoft OneDrive account"
+        }
+      },
+      "continueOnFail": true,
+      "notes": "Creates the channel folders automatically. Fails only for a file that is open and locked; the next run retries."
+    }
+  ],
+  "connections": {
+    "Every hour": {
+      "main": [
+        [
+          {
+            "node": "Get sheet paths",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get sheet paths": {
+      "main": [
+        [
+          {
+            "node": "Split paths",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split paths": {
+      "main": [
+        [
+          {
+            "node": "Download sheet from OneDrive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download sheet from OneDrive": {
+      "main": [
+        [
+          {
+            "node": "Import Status column",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Import Status column": {
+      "main": [
+        [
+          {
+            "node": "Collect new videos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect new videos": {
+      "main": [
+        [
+          {
+            "node": "Build Excel files",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Excel files": {
+      "main": [
+        [
+          {
+            "node": "Split files",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split files": {
+      "main": [
+        [
+          {
+            "node": "Make Excel file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Make Excel file": {
+      "main": [
+        [
+          {
+            "node": "Upload to OneDrive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "timezone": "Asia/Kolkata",
+    "executionOrder": "v1",
+    "saveManualExecutions": true
+  },
+  "active": false,
+  "pinData": {},
+  "tags": []
+}
