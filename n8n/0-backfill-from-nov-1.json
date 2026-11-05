@@ -1,0 +1,200 @@
+{
+  "name": "News Tracker · Backfill from 1 Nov (run once)",
+  "nodes": [
+    {
+      "id": "2d950548-1ef9-47bb-b141-9a84307a0230",
+      "name": "Read me",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "content": "## Backfill\nRun this once after setup. It collects every upload since 1 Nov 2026 and creates a task sheet for each day (1 Nov → today) in each channel folder. Takes a few minutes.",
+        "width": 520,
+        "height": 200
+      }
+    },
+    {
+      "id": "93273046-46ec-4e04-8d2b-320ad8330ae1",
+      "name": "Run once by hand",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        300
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "20ae458b-da88-44a8-adc4-e110adce6c7c",
+      "name": "Collect new videos",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        300
+      ],
+      "parameters": {
+        "options": {
+          "timeout": 900000
+        },
+        "method": "POST",
+        "url": "http://tracker:8080/collect",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ since: \"2026-11-01\" }) }}"
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "31603811-3337-4a2a-80a5-aa38bae641c9",
+      "name": "Build Excel files",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        300
+      ],
+      "parameters": {
+        "options": {
+          "timeout": 900000
+        },
+        "method": "POST",
+        "url": "http://tracker:8080/files",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ from: \"2026-11-01\" }) }}"
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "2784c7aa-ad60-4313-bfb1-510fe3890770",
+      "name": "Split files",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        720,
+        300
+      ],
+      "parameters": {
+        "fieldToSplitOut": "files",
+        "options": {}
+      }
+    },
+    {
+      "id": "8dce1f88-cc43-4972-83e1-8f9ecffffd76",
+      "name": "Make Excel file",
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        960,
+        300
+      ],
+      "parameters": {
+        "operation": "toBinary",
+        "sourceProperty": "base64",
+        "options": {
+          "fileName": "={{ $json.name }}",
+          "mimeType": "={{ $json.mimeType }}"
+        }
+      }
+    },
+    {
+      "id": "46eb2099-0b53-4c2d-ab05-be8eaf7b94d5",
+      "name": "Upload to OneDrive",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1200,
+        300
+      ],
+      "parameters": {
+        "options": {
+          "timeout": 300000
+        },
+        "method": "PUT",
+        "url": "={{ 'https://graph.microsoft.com/v1.0/me/drive/root:/' + $('Split files').item.json.path.split('/').map(encodeURIComponent).join('/') + ':/content' }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "microsoftOneDriveOAuth2Api",
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "data"
+      },
+      "credentials": {
+        "microsoftOneDriveOAuth2Api": {
+          "id": "",
+          "name": "Microsoft OneDrive account"
+        }
+      },
+      "continueOnFail": true,
+      "notes": "Creates the channel folders automatically. Fails only for a file that is open and locked; the next run retries."
+    }
+  ],
+  "connections": {
+    "Run once by hand": {
+      "main": [
+        [
+          {
+            "node": "Collect new videos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect new videos": {
+      "main": [
+        [
+          {
+            "node": "Build Excel files",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Excel files": {
+      "main": [
+        [
+          {
+            "node": "Split files",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split files": {
+      "main": [
+        [
+          {
+            "node": "Make Excel file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Make Excel file": {
+      "main": [
+        [
+          {
+            "node": "Upload to OneDrive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "timezone": "Asia/Kolkata",
+    "executionOrder": "v1",
+    "saveManualExecutions": true
+  },
+  "active": false,
+  "pinData": {},
+  "tags": []
+}

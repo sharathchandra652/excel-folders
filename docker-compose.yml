@@ -1,0 +1,41 @@
+# Runs on the Oracle Cloud free server. Start with:  docker compose up -d --build
+services:
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:2.44.4
+    restart: unless-stopped
+    ports:
+      # Only reachable from the server itself; you open it through an SSH tunnel (see SETUP.md).
+      - "127.0.0.1:5678:5678"
+    environment:
+      - GENERIC_TIMEZONE=Asia/Kolkata
+      - TZ=Asia/Kolkata
+      - N8N_HOST=localhost
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - WEBHOOK_URL=http://localhost:5678/
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
+      - N8N_SECURE_COOKIE=false
+      - EXECUTIONS_DATA_PRUNE=true
+      - EXECUTIONS_DATA_MAX_AGE=336
+      - N8N_DIAGNOSTICS_ENABLED=false
+    volumes:
+      - n8n_data:/home/node/.n8n
+    depends_on:
+      - tracker
+
+  tracker:
+    build: ./service
+    restart: unless-stopped
+    environment:
+      - YOUTUBE_API_KEY=${YOUTUBE_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - CLAUDE_MODEL=${CLAUDE_MODEL:-claude-opus-5-5}
+      - REPORT_EMAIL=${REPORT_EMAIL}
+      - START_DATE=${START_DATE:-2026-11-01}
+    volumes:
+      - tracker_data:/data
+    # No ports: only n8n (same Docker network) can call it, at http://tracker:8080
+
+volumes:
+  n8n_data:
+  tracker_data:

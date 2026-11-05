@@ -1,0 +1,449 @@
+{
+  "name": "News Tracker · Daily Report 9 PM",
+  "nodes": [
+    {
+      "id": "5f954a85-355b-4dc3-9d49-a31660ffb4cf",
+      "name": "Read me",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "content": "## Daily report\nAt 9 PM IST: same update as the hourly run, then emails the posting report, Claude's top stories and the 4 task sheets from your Outlook to REPORT_EMAIL.",
+        "width": 520,
+        "height": 200
+      }
+    },
+    {
+      "id": "270ee115-5517-4822-9b6c-a7e41db132de",
+      "name": "Every day 9 PM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        300
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 21 * * *"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "77cb219e-bf8e-4007-aab1-f1126934d92d",
+      "name": "Get sheet paths",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        300
+      ],
+      "parameters": {
+        "options": {
+          "timeout": 900000
+        },
+        "url": "http://tracker:8080/paths"
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "8f57aba8-9396-45c7-a017-bd7678d58d49",
+      "name": "Split paths",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        480,
+        300
+      ],
+      "parameters": {
+        "fieldToSplitOut": "paths",
+        "options": {}
+      }
+    },
+    {
+      "id": "3306a354-6049-4654-9ed5-b6732431ec49",
+      "name": "Download sheet from OneDrive",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        300
+      ],
+      "parameters": {
+        "options": {
+          "timeout": 120000,
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "neverError": true
+            }
+          }
+        },
+        "url": "={{ 'https://graph.microsoft.com/v1.0/me/drive/root:/' + $json.path.split('/').map(encodeURIComponent).join('/') + ':/content' }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "microsoftOneDriveOAuth2Api"
+      },
+      "credentials": {
+        "microsoftOneDriveOAuth2Api": {
+          "id": "",
+          "name": "Microsoft OneDrive account"
+        }
+      },
+      "notes": "Reads back the Status column you edited. A missing file (first run) is fine."
+    },
+    {
+      "id": "6f02f4d1-3431-46a2-8914-23b533bb083d",
+      "name": "Import Status column",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        960,
+        300
+      ],
+      "parameters": {
+        "options": {
+          "timeout": 900000
+        },
+        "method": "POST",
+        "url": "http://tracker:8080/status",
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "data"
+      },
+      "continueOnFail": true
+    },
+    {
+      "id": "e88467b6-a287-4727-ae2f-7c1717978dd2",
+      "name": "Collect new videos",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1200,
+        300
+      ],
+      "parameters": {
+        "options": {
+          "timeout": 900000
+        },
+        "method": "POST",
+        "url": "http://tracker:8080/collect",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={}"
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "ea4997a3-8ab8-4727-a868-db1c44cb879b",
+      "name": "Build Excel files",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1440,
+        300
+      ],
+      "parameters": {
+        "options": {
+          "timeout": 900000
+        },
+        "method": "POST",
+        "url": "http://tracker:8080/files",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={}"
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "afc5c52c-6155-4439-a84a-976726f6060a",
+      "name": "Split files",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        1680,
+        300
+      ],
+      "parameters": {
+        "fieldToSplitOut": "files",
+        "options": {}
+      }
+    },
+    {
+      "id": "acd06d67-180c-42d3-9f8b-28c4e50fb5c3",
+      "name": "Make Excel file",
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        1920,
+        300
+      ],
+      "parameters": {
+        "operation": "toBinary",
+        "sourceProperty": "base64",
+        "options": {
+          "fileName": "={{ $json.name }}",
+          "mimeType": "={{ $json.mimeType }}"
+        }
+      }
+    },
+    {
+      "id": "5a1529e4-fa43-442f-815b-2e863a0fa45e",
+      "name": "Upload to OneDrive",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2160,
+        300
+      ],
+      "parameters": {
+        "options": {
+          "timeout": 300000
+        },
+        "method": "PUT",
+        "url": "={{ 'https://graph.microsoft.com/v1.0/me/drive/root:/' + $('Split files').item.json.path.split('/').map(encodeURIComponent).join('/') + ':/content' }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "microsoftOneDriveOAuth2Api",
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "data"
+      },
+      "credentials": {
+        "microsoftOneDriveOAuth2Api": {
+          "id": "",
+          "name": "Microsoft OneDrive account"
+        }
+      },
+      "continueOnFail": true,
+      "notes": "Creates the channel folders automatically. Fails only for a file that is open and locked; the next run retries."
+    },
+    {
+      "id": "d14c75bd-33f6-42d6-ac53-8642c6412c84",
+      "name": "Get OneDrive folder link",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2400,
+        300
+      ],
+      "parameters": {
+        "options": {
+          "timeout": 60000,
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        },
+        "url": "={{ 'https://graph.microsoft.com/v1.0/me/drive/root:/' + encodeURIComponent('News Tracker') }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "microsoftOneDriveOAuth2Api"
+      },
+      "credentials": {
+        "microsoftOneDriveOAuth2Api": {
+          "id": "",
+          "name": "Microsoft OneDrive account"
+        }
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "1815b5bf-2dc5-47d0-9800-f78fd4d2e621",
+      "name": "Build report email",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2640,
+        300
+      ],
+      "parameters": {
+        "options": {
+          "timeout": 900000
+        },
+        "method": "POST",
+        "url": "http://tracker:8080/report",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ webUrl: $json.webUrl }) }}"
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "93b0c711-22cb-4c74-b3ea-5d67f3b1e723",
+      "name": "Send email (Outlook)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2880,
+        300
+      ],
+      "parameters": {
+        "options": {
+          "timeout": 120000
+        },
+        "method": "POST",
+        "url": "https://graph.microsoft.com/v1.0/me/sendMail",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "microsoftOutlookOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.sendMail) }}"
+      },
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "",
+          "name": "Microsoft Outlook account"
+        }
+      },
+      "executeOnce": true
+    }
+  ],
+  "connections": {
+    "Every day 9 PM": {
+      "main": [
+        [
+          {
+            "node": "Get sheet paths",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get sheet paths": {
+      "main": [
+        [
+          {
+            "node": "Split paths",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split paths": {
+      "main": [
+        [
+          {
+            "node": "Download sheet from OneDrive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download sheet from OneDrive": {
+      "main": [
+        [
+          {
+            "node": "Import Status column",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Import Status column": {
+      "main": [
+        [
+          {
+            "node": "Collect new videos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect new videos": {
+      "main": [
+        [
+          {
+            "node": "Build Excel files",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Excel files": {
+      "main": [
+        [
+          {
+            "node": "Split files",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split files": {
+      "main": [
+        [
+          {
+            "node": "Make Excel file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Make Excel file": {
+      "main": [
+        [
+          {
+            "node": "Upload to OneDrive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload to OneDrive": {
+      "main": [
+        [
+          {
+            "node": "Get OneDrive folder link",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get OneDrive folder link": {
+      "main": [
+        [
+          {
+            "node": "Build report email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build report email": {
+      "main": [
+        [
+          {
+            "node": "Send email (Outlook)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "timezone": "Asia/Kolkata",
+    "executionOrder": "v1",
+    "saveManualExecutions": true
+  },
+  "active": false,
+  "pinData": {},
+  "tags": []
+}
