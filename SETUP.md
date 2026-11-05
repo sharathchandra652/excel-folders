@@ -26,7 +26,7 @@ News Tracker/
 
 Each daily file has 2 tabs:
 
-- **Task Sheet:** S.No · Date · Day · Timings · Title · Description (AI) · Thumbnail · Link · Type · Status
+- **Task Sheet:** grouped hour by hour. Each hour has a header row ("4 PM – 5 PM · 5 posts", red when nothing was posted), followed by that hour's videos: S.No · Date · Day · Timings · Title · Description (AI) · Thumbnail · Link · Type · Status
 - **Hourly Report:** posts in each of the 24 hours (red means nothing was posted that hour), total posts, active hours, longest gap, busiest hour, and a verdict: **Hourly poster / Regular / Irregular**
 
 **Status:** set each row to New, Reviewed or Done in OneDrive or Excel. The next hourly run reads it back and keeps it, including in the History file. Setting a row back to "New" isn't remembered; only Reviewed and Done are.

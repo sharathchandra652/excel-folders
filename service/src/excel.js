@@ -137,10 +137,22 @@ export async function buildDaily(ch, date, videos, now = new Date()) {
     ['Status', 'status', 11], ['Video ID', 'id', 14],
   ]);
   ws.getColumn('id').hidden = true;
-  for (const [i, v] of rows.entries()) {
+  const stats = dayStats(videos, date, now);
+  let sno = 0;
+  // Grouped by hour: a header row per hour (red when nothing was posted), then that hour's videos.
+  for (let h = 0; h < stats.hoursElapsed; h++) {
+    const inHour = rows.filter((v) => ist(v.postedAt).hour === h);
+    const hr = ws.addRow([`${hourLabel(h)}   ·   ${inHour.length ? `${inHour.length} post${inHour.length > 1 ? 's' : ''}` : 'no post this hour'}`]);
+    ws.mergeCells(hr.number, 1, hr.number, 10);
+    hr.height = 20;
+    hr.getCell(1).font = { bold: true, color: { argb: inHour.length ? 'FFFFFFFF' : 'FF9C0006' } };
+    hr.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: inHour.length ? 'FF3D6A99' : 'FFFDE2E1' } };
+    for (const v of inHour) await videoRow(v);
+  }
+  async function videoRow(v) {
     const t = ist(v.postedAt);
     const row = ws.addRow({
-      sno: i + 1, date: dmy(t.date), day: t.day, time: clock(t.hour, t.minute), title: v.title,
+      sno: ++sno, date: dmy(t.date), day: t.day, time: clock(t.hour, t.minute), title: v.title,
       desc: v.summary || '(AI summary pending: added on the next hourly run)', thumb: '',
       link: { text: 'Open video', hyperlink: link(v) }, type: v.type, status: statusOf(v.id), id: v.id,
     });
@@ -156,9 +168,7 @@ export async function buildDaily(ch, date, videos, now = new Date()) {
       ws.addImage(imageId, { tl: { col: 6.05, row: row.number - 1 + 0.06 }, ext: { width: 168, height: 94 } });
     }
   }
-  statusColours(ws, 'J', rows.length + 1);
-  ws.autoFilter = { from: 'A1', to: `J${Math.max(rows.length + 1, 1)}` };
-  const stats = dayStats(videos, date, now);
+  statusColours(ws, 'J', ws.rowCount);
   hourlyReportSheet(wb, ch, stats, `${ch.name} · Posting report · ${dmy(date)} (${ist(`${date}T12:00:00Z`).day})`);
   return { buffer: Buffer.from(await wb.xlsx.writeBuffer()), stats, count: rows.length };
 }
