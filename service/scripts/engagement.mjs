@@ -135,3 +135,36 @@ for (const day of days) {
   await wb.xlsx.writeFile(path.join(outDir, `Engagement - ${dmy(day)}.xlsx`));
   console.log(dmy(day), summaryRows.map((r) => `${r[0]}: ${r[1]} posts, ${r[3]} views, ${r[4]} likes, ${r[5]} comments, ${r[8]}, ${r[10]}`).join(' | '));
 }
+
+// 4. one combined list: every upload per channel, day by day
+{
+  const wb = new ExcelJS.Workbook();
+  const L = [['Date', 12], ['Day', 11], ['Time', 8], ['Type', 8], ['Category', 13], ['Title', 55], ['About (AI)', 55], ['Link', 8], ['Views', 10], ['Likes', 9], ['Comments', 11], ['Comment mood', 14], ['Response', 11]];
+  for (const ch of CHANNELS) {
+    const ws = wb.addWorksheet(ch.name, { views: [{ state: 'frozen', ySplit: 2 }] });
+    ws.columns = L.map(([, w]) => ({ width: w }));
+    ws.mergeCells(1, 1, 1, L.length);
+    ws.getCell('A1').value = `${ch.name} · Daily uploads · ${dmy(from)} to ${dmy(to)}`;
+    ws.getCell('A1').font = { bold: true, size: 14, color: { argb: 'FFFFFFFF' } }; ws.getCell('A1').fill = fill(C.head); ws.getRow(1).height = 26;
+    const h = ws.getRow(2); h.values = L.map(([n]) => n);
+    h.eachCell((c) => { c.font = { bold: true }; c.fill = fill(C.sub); c.border = border; c.alignment = { horizontal: 'center' }; });
+    for (const day of days) {
+      const vids = all.filter((v) => v.channel === ch.key && istDay(v.postedAt) === day).sort((a, b) => a.postedAt.localeCompare(b.postedAt));
+      const wd = new Date(day + 'T00:00:00Z').toLocaleDateString('en-GB', { weekday: 'long', timeZone: 'UTC' });
+      const band = ws.addRow([`${dmy(day)} · ${wd} · ${vids.length} upload${vids.length === 1 ? '' : 's'}`]);
+      ws.mergeCells(band.number, 1, band.number, L.length);
+      band.getCell(1).font = { bold: true, color: { argb: vids.length ? 'FF1F4E78' : 'FFC00000' } }; band.getCell(1).fill = fill(vids.length ? 'FFE2EFDA' : 'FFFFC7CE');
+      vids.forEach((v, i) => {
+        const s = stats[v.id] || {}, m = mood[v.id], views = +s.viewCount || 0, likes = +s.likeCount || 0, comm = +s.commentCount || 0;
+        const eng = views ? ((likes + comm) / views) * 100 : 0;
+        const r = ws.addRow([dmy(day), wd, istTime(v.postedAt), v.type, v.category || '', v.title, v.summary || '', { text: 'Open', hyperlink: `https://youtu.be/${v.id}` }, views, likes, comm, moodLabel(m), respLabel(eng)]);
+        r.eachCell({ includeEmpty: true }, (c, n) => { c.border = border; c.alignment = { vertical: 'top', wrapText: n === 6 || n === 7, horizontal: n === 6 || n === 7 ? 'left' : 'center' }; if (i % 2) c.fill = fill(C.alt); });
+        r.getCell(8).font = { color: { argb: 'FF0563C1' }, underline: true };
+        [9, 10, 11].forEach((n) => (r.getCell(n).numFmt = '#,##0'));
+        if (C[r.getCell(12).value]) r.getCell(12).fill = fill(C[r.getCell(12).value]);
+        r.getCell(13).fill = fill(C[r.getCell(13).value]);
+      });
+    }
+  }
+  await wb.xlsx.writeFile(path.join(outDir, `All Channels - Daily Uploads ${dmy(from)} to ${dmy(to)}.xlsx`));
+}
