@@ -166,5 +166,6 @@ for (const day of days) {
       });
     }
   }
+  for (const f of fs.readdirSync(outDir)) if (f.startsWith('All Channels - Daily Uploads')) fs.unlinkSync(path.join(outDir, f));
   await wb.xlsx.writeFile(path.join(outDir, `All Channels - Daily Uploads ${dmy(from)} to ${dmy(to)}.xlsx`));
 }

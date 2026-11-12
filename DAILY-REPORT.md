@@ -9,6 +9,7 @@ The scheduled task runs these steps once a day (11:30 PM IST). No server, n8n or
    - **category:** one of Politics, Elections, Irrigation, Crime, Courts, Health, Govt schemes, Society, Environment, Event, Headlines, Entertainment, Other.
 4. `node service/scripts/daily.mjs apply /tmp/summaries.json`
 5. `node service/scripts/daily.mjs build`. This writes `reports/Channel N (…)/<Channel> - DD-MM-YYYY.xlsx` for every day, plus each channel's History file and `reports/All Channels - Dashboard.xlsx`.
-6. Commit `reports/` to `main` with the message `Daily report DD-MM-YYYY`, then push.
+6. `node service/scripts/engagement.mjs 2026-11-01`. This refreshes `daily excels/`: one `Engagement - DD-MM-YYYY.xlsx` per day (views, likes, comments, comment mood, response) and `All Channels - Daily Uploads 01-11-2026 to DD-MM-YYYY.xlsx` (every upload per channel, day by day; the older copy is removed).
+7. Commit `reports/` and `daily excels/` to `main` with the message `Daily report DD-MM-YYYY`, then push.
 
 Each daily file: a **Task Sheet** grouped hour by hour (S.No, Date, Day, Timings, Title, Description (AI), Thumbnail, Link, Type, Status; hours with no post in red), and an **Hourly Report** tab (totals, live count, active hours, longest gap, verdict).
